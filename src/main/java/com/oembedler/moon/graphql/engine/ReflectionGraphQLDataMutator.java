@@ -92,7 +92,12 @@ public class ReflectionGraphQLDataMutator implements DataFetcher {
         Map<String, Object> inputMap = unwrapInputArguments(environment);
 
         Map<String, Object> outputMap = new HashMap<>();
-        outputMap.put(getGraphQLMethodParameters().getReturnTypeName(), targetMethodResult);
+        // TODO GraphQLOuts 6
+        if (targetMethodResult instanceof Map) {
+            outputMap.putAll((Map) targetMethodResult);
+        } else {
+            outputMap.put(getGraphQLMethodParameters().getReturnTypeName(), targetMethodResult);
+        }
         injectClientMutationIdIfRequired(inputMap, outputMap);
 
         return outputMap;

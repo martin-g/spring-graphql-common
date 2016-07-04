@@ -32,15 +32,15 @@ plugins {
     id "com.jfrog.bintray" version "1.4"
 }
 
-apply plugin: 'idea'
+// apply plugin: 'idea'
 apply plugin: 'java'
 apply plugin: 'maven'
 apply plugin: 'groovy'
 apply plugin: 'maven-publish'
 apply plugin: 'propdeps'
 apply plugin: 'propdeps-maven'
-apply plugin: 'propdeps-idea'
-apply plugin: 'propdeps-eclipse'
+// apply plugin: 'propdeps-idea'
+//apply plugin: 'propdeps-eclipse'
 
 version = System.env.TRAVIS_TAG ? PROJECT_VERSION : PROJECT_VERSION + '-' + new SimpleDateFormat('yyyy-MM-dd\'T\'HH-mm-ss').format(new Date())
 group = PROJECT_GROUP
@@ -49,17 +49,17 @@ repositories {
     jcenter()
 }
 
-idea {
-    project {
-        jdkName = TARGET_COMPATIBILITY
-        languageLevel = TARGET_COMPATIBILITY
-        vcs = VCS
-    }
-    module {
-        downloadJavadoc = true
-        downloadSources = true
-    }
-}
+// idea {
+//     project {
+//         jdkName = TARGET_COMPATIBILITY
+//         languageLevel = TARGET_COMPATIBILITY
+//         vcs = VCS
+//     }
+//     module {
+//         downloadJavadoc = true
+//         downloadSources = true
+//     }
+// }
 
 compileJava {
     sourceCompatibility = SOURCE_COMPATIBILITY

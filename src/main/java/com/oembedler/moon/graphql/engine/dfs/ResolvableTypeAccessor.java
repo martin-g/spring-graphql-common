@@ -32,7 +32,11 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Type;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * @author <a href="mailto:java.lang.RuntimeException@gmail.com">oEmbedler Inc.</a>
@@ -43,12 +47,20 @@ public class ResolvableTypeAccessor {
     private final Class<?> implClass;
     private final ResolvableType resolvableType;
     private final List<Annotation> annotations;
+    private final Map<String, Class> graphqlOutRepeatableAnnotationsAttributes;
 
-    public ResolvableTypeAccessor(String name, ResolvableType resolvableType, List<Annotation> annotations, Class<?> implClass) {
+    public ResolvableTypeAccessor(String name, ResolvableType resolvableType, List<Annotation> annotations,
+                                  Map<String, Class> graphqlOutRepeatableAnnotationsAttributes,
+                                  Class<?> implClass) {
         this.implClass = implClass;
         this.resolvableType = resolvableType;
         this.annotations = annotations;
+        this.graphqlOutRepeatableAnnotationsAttributes = graphqlOutRepeatableAnnotationsAttributes;
         this.name = name;
+    }
+
+    public ResolvableTypeAccessor(String name, ResolvableType resolvableType, List<Annotation> annotations, Class<?> implClass) {
+        this(name, resolvableType, annotations, Collections.emptyMap(), implClass);
     }
 
     public static ResolvableTypeAccessor forClass(Class<?> rawClass) {
@@ -79,10 +91,15 @@ public class ResolvableTypeAccessor {
 
     public static ResolvableTypeAccessor forMethodReturnType(Method method, Class<?> implClass) {
         ResolvableType resolvableType = ResolvableType.forMethodReturnType(method, implClass);
+        Map<String, Class> mm = new LinkedHashMap<>();
+        for (GraphQLOut graphQLOut : AnnotationUtils.getRepeatableAnnotations(method, GraphQLOut.class)) {
+            mm.put(graphQLOut.value(), graphQLOut.type());
+        }
         return new ResolvableTypeAccessor(
                 method.getName(),
                 resolvableType,
                 Lists.newArrayList(method.getAnnotations()),
+                mm,
                 implClass);
     }
 
@@ -137,6 +154,14 @@ public class ResolvableTypeAccessor {
         V result = fallback;
         T annotation = getAnnotation(annotationClass);
         if (annotation != null && StringUtils.hasText((String) AnnotationUtils.getValue(annotation)))
+            result = (V) AnnotationUtils.getValue(annotation);
+        return result;
+    }
+
+    private <T extends Annotation, V> V getAnnotationValues(Class<T> annotationClass, V fallback) {
+        V result = fallback;
+        T annotation = getAnnotation(annotationClass);
+        if (annotation != null && StringUtils.hasText(((String[]) AnnotationUtils.getValue(annotation))[0]))
             result = (V) AnnotationUtils.getValue(annotation);
         return result;
     }
@@ -201,6 +226,17 @@ public class ResolvableTypeAccessor {
     public String getGraphQLOutName() {
         String result = getAnnotationValue(GraphQLOut.class, this.name);
         return result;
+    }
+
+    public Map<String, Class> getGraphQLOutFields() {
+        if (graphqlOutRepeatableAnnotationsAttributes.isEmpty()) {
+            Map<String, Class> res = new LinkedHashMap<>();
+            res.put(getAnnotationValue(GraphQLOut.class, this.name), Object.class);
+
+            return res;
+        } else {
+            return graphqlOutRepeatableAnnotationsAttributes;
+        }
     }
 
     public String getGraphQLInName() {

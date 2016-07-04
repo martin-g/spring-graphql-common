@@ -24,6 +24,7 @@ import com.oembedler.moon.graphql.GraphQLConstants;
 import com.oembedler.moon.graphql.GraphQLSchemaBeanFactory;
 import com.oembedler.moon.graphql.engine.*;
 import com.oembedler.moon.graphql.engine.stereotype.GraphQLInterface;
+import com.oembedler.moon.graphql.engine.stereotype.GraphQLObject;
 import com.oembedler.moon.graphql.engine.stereotype.GraphQLSchemaQuery;
 import com.oembedler.moon.graphql.engine.type.GraphQLEnumTypeExt;
 import graphql.Scalars;
@@ -496,34 +497,52 @@ public class GraphQLSchemaDfsTraversal {
     }
 
     public GraphQLObjectType createGraphQLOutputObjectType(DfsContext dfsContext, String mutationName, ResolvableTypeAccessor resolvableTypeAccessor) {
-
-        Class<?> cls = resolvableTypeAccessor.resolve();
-        GraphQLType graphQLObjectType = objectTypeResolverMap.get(cls);
-        if (graphQLObjectType == null)
-            graphQLObjectType = createGraphQLFieldType(dfsContext, resolvableTypeAccessor, true);
-
         GraphQLOutputType clientMutationIdType = getGraphQLSchemaConfig().isAllowEmptyClientMutationId() ?
                 GraphQLString : new GraphQLNonNull(GraphQLString);
-
-        addToMutationReturnTypeResolverMap(dfsContext, mutationName, cls, (GraphQLOutputType) graphQLObjectType);
-
-        GraphQLFieldDefinition graphQLFieldDefinition = newFieldDefinition()
-                .name(resolvableTypeAccessor.getGraphQLOutName())
-                .deprecate(resolvableTypeAccessor.getGraphQLDeprecationReason())
-                .description(resolvableTypeAccessor.getDescription())
-                .type((GraphQLOutputType) graphQLObjectType)
-                .build();
-
-        addToFieldDefinitionResolverMap(dfsContext, graphQLFieldDefinition, resolvableTypeAccessor.getGraphQLComplexitySpelExpression());
-
-        return newObject()
+        GraphQLObjectType.Builder builder = newObject()
                 .name(resolvableTypeAccessor.getName() + getGraphQLSchemaConfig().getOutputObjectNamePrefix())
                 .field(newFieldDefinition()
                         .name(getGraphQLSchemaConfig().getClientMutationIdName())
                         .type(clientMutationIdType)
-                        .build())
-                .field(graphQLFieldDefinition)
-                .build();
+                        .build());
+
+        Map<String, Class> graphQLOutFields = resolvableTypeAccessor.getGraphQLOutFields();
+        for (Map.Entry<String, Class> kvGraphQLOutField : graphQLOutFields.entrySet()) {
+            String name;
+            Class cls;
+            GraphQLType graphQLObjectType;
+            if (graphQLOutFields.size() == 1 && kvGraphQLOutField.getValue() == Object.class) {
+                name = resolvableTypeAccessor.getGraphQLOutName();
+                cls = resolvableTypeAccessor.resolve(); // TODO GraphQLOuts 1
+                graphQLObjectType = objectTypeResolverMap.get(cls);
+                if (graphQLObjectType == null) {
+                    graphQLObjectType = createGraphQLFieldType(dfsContext, resolvableTypeAccessor, true);
+                }
+            } else {
+                name = kvGraphQLOutField.getKey();
+                cls = kvGraphQLOutField.getValue();
+                graphQLObjectType = objectTypeResolverMap.get(cls);
+                if (graphQLObjectType == null) {
+                    graphQLObjectType = createGraphQLFieldType(dfsContext, ResolvableTypeAccessor.forClass(cls), true);
+                }
+            }
+
+            builder.field(newFieldDefinition()
+                    .name(name)
+                    // TODO case 5753 Description and deprecation per GraphQLOut
+//                .deprecate(resolvableTypeAccessor.getGraphQLDeprecationReason())
+//                .description(resolvableTypeAccessor.getDescription())
+                    .type((GraphQLOutputType) graphQLObjectType)
+                    .build());
+        }
+
+        // TODO GraphQLOuts 2
+//        addToMutationReturnTypeResolverMap(dfsContext, mutationName, cls, (GraphQLOutputType) graphQLObjectType);
+
+        // TODO GraphQLOuts 4
+//        addToFieldDefinitionResolverMap(dfsContext, graphQLFieldDefinition, resolvableTypeAccessor.getGraphQLComplexitySpelExpression());
+
+        return builder.build();
     }
 
     public void addToMutationReturnTypeResolverMap(DfsContext dfsContext, String mutationName, Class<?> implClass, GraphQLOutputType graphQLOutputType) {
