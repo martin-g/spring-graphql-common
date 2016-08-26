@@ -23,6 +23,7 @@ import com.google.common.collect.Lists;
 import com.oembedler.moon.graphql.GraphQLConstants;
 import com.oembedler.moon.graphql.GraphQLSchemaBeanFactory;
 import com.oembedler.moon.graphql.engine.*;
+import com.oembedler.moon.graphql.engine.stereotype.GraphQLID;
 import com.oembedler.moon.graphql.engine.stereotype.GraphQLInterface;
 import com.oembedler.moon.graphql.engine.stereotype.GraphQLObject;
 import com.oembedler.moon.graphql.engine.stereotype.GraphQLSchemaQuery;
@@ -161,7 +162,7 @@ public class GraphQLSchemaDfsTraversal {
 
                         graphQLObjectType = GraphQLUnionType.newUnionType()
                                 .name(resolvableTypeAccessor.getName())
-                                .possibleTypes(possibleTypes.toArray(new GraphQLType[possibleTypes.size()]))
+                                .possibleTypes(possibleTypes.toArray(new GraphQLObjectType[possibleTypes.size()]))
                                 .typeResolver(new CompleteObjectTreeTypeResolver(objectTypeResolverMap))
                                 .description(resolvableTypeAccessor.getDescription())
                                 .build();
@@ -523,7 +524,11 @@ public class GraphQLSchemaDfsTraversal {
                 cls = kvGraphQLOutField.getValue();
                 graphQLObjectType = objectTypeResolverMap.get(cls);
                 if (graphQLObjectType == null) {
-                    graphQLObjectType = createGraphQLFieldType(dfsContext, ResolvableTypeAccessor.forClass(cls), true);
+                    if (cls == GraphQLID.class) {
+                        graphQLObjectType = Scalars.GraphQLID;
+                    } else {
+                        graphQLObjectType = createGraphQLFieldType(dfsContext, ResolvableTypeAccessor.forClass(cls), true);
+                    }
                 }
             }
 

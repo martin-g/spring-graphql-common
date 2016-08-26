@@ -77,7 +77,8 @@ abstract class GraphQLAbstractRxExecutionStrategy extends ExecutionStrategy {
         if (executionContext instanceof GraphQLExecutionContext) {
             return (GraphQLExecutionContext) executionContext;
         } else {
-            int currentDepth = executionContext.getOperationDefinition().getOperation() == OperationDefinition.Operation.MUTATION ? 1 : 0;
+            int currentDepth = executionContext.getOperationDefinition().getOperation() == OperationDefinition.Operation.MUTATION ||
+                    executionContext.getOperationDefinition().getOperation() == OperationDefinition.Operation.SUBSCRIPTION ? 1 : 0;
             return new GraphQLExecutionContext(executionContext, currentDepth);
         }
     }
