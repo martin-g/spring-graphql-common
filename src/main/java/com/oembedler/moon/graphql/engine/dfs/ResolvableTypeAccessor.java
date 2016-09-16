@@ -215,6 +215,7 @@ public class ResolvableTypeAccessor {
         String result = getAnnotationValue(GraphQLField.class, this.name);
         result = getAnnotationValue(GraphQLID.class, result);
         result = getAnnotationValue(GraphQLMutation.class, result);
+        result = getAnnotationValue(GraphQLSubscription.class, result);
         result = getAnnotationValue(GraphQLObject.class, result);
         result = getAnnotationValue(GraphQLInterface.class, result);
         result = getAnnotationValue(GraphQLUnion.class, result);
@@ -313,6 +314,10 @@ public class ResolvableTypeAccessor {
 
     public boolean isGraphQLMutation() {
         return isAnnotationPresent(GraphQLMutation.class);
+    }
+
+    public boolean isGraphQLSubscription() {
+        return isAnnotationPresent(GraphQLSubscription.class);
     }
 
     public String getDescription() {

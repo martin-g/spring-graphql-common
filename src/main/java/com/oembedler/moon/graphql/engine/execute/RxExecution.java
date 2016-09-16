@@ -62,6 +62,9 @@ class RxExecution {
         if (operationDefinition.getOperation() == OperationDefinition.Operation.MUTATION) {
             return graphQLSchema.getMutationType();
 
+        } else if (operationDefinition.getOperation() == OperationDefinition.Operation.SUBSCRIPTION) {
+            return graphQLSchema.getSubscriptionType();
+
         } else if (operationDefinition.getOperation() == OperationDefinition.Operation.QUERY) {
             return graphQLSchema.getQueryType();
 
@@ -79,7 +82,8 @@ class RxExecution {
         Map<String, List<Field>> fields = new LinkedHashMap<String, List<Field>>();
         fieldCollector.collectFields(executionContext, operationRootType, operationDefinition.getSelectionSet(), new ArrayList<String>(), fields);
 
-        if (operationDefinition.getOperation() == OperationDefinition.Operation.MUTATION) {
+        if (operationDefinition.getOperation() == OperationDefinition.Operation.MUTATION ||
+                operationDefinition.getOperation() == OperationDefinition.Operation.SUBSCRIPTION) {
             return new GraphQLDefaultRxExecutionStrategy(graphQLSchemaHolder, maxQueryDepth, maxQueryComplexity)
                                                       .execute(executionContext, operationRootType, root, fields);
         } else {

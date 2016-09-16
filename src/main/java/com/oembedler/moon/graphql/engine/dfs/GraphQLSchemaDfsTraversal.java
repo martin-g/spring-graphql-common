@@ -101,11 +101,20 @@ public class GraphQLSchemaDfsTraversal {
         DfsContext dfsContext = new DfsContext();
         GraphQLObjectType graphQLRootQueryObjectType = (GraphQLObjectType) findSchemaQueryRoot(dfsContext, schemaClass);
         GraphQLObjectType graphQLMutationObjectType = findSchemaMutations(dfsContext, schemaClass);
-        GraphQLSchema graphQLSchema =
-                newSchema()
-                        .query(graphQLRootQueryObjectType)
-                        .mutation(graphQLMutationObjectType)
-                        .build();
+        GraphQLObjectType graphQLSubscriptionObjectType = findSchemaSubscriptions(dfsContext, schemaClass);
+        GraphQLSchema graphQLSchema;
+        if (!graphQLSubscriptionObjectType.getFieldDefinitions().isEmpty()) {
+            graphQLSchema = newSchema()
+                    .query(graphQLRootQueryObjectType)
+                    .mutation(graphQLMutationObjectType)
+                    .subscription(graphQLSubscriptionObjectType)
+                    .build();
+        } else {
+            graphQLSchema = newSchema()
+                    .query(graphQLRootQueryObjectType)
+                    .mutation(graphQLMutationObjectType)
+                    .build();
+        }
         SchemaHelper.replaceTypeReferencesForUnionType(graphQLSchema, graphQLUnionTypeMap);
         return graphQLSchema;
     }
@@ -454,6 +463,14 @@ public class GraphQLSchemaDfsTraversal {
                 .build();
     }
 
+    public GraphQLObjectType findSchemaSubscriptions(DfsContext dfsContext, Class<?> implClass) {
+        List<GraphQLFieldDefinition> graphQLFieldDefinitions = findSchemaSubscriptionsFields(dfsContext, implClass);
+        return newObject()
+                .name(getGraphQLSchemaConfig().getSchemaSubscriptionObjectName())
+                .fields(graphQLFieldDefinitions)
+                .build();
+    }
+
     public List<GraphQLFieldDefinition> findSchemaMutationsFields(DfsContext dfsContext, Class<?> implClass) {
 
         final List<GraphQLFieldDefinition> graphQLFieldDefinitions = new ArrayList<GraphQLFieldDefinition>();
@@ -497,15 +514,78 @@ public class GraphQLSchemaDfsTraversal {
         return graphQLFieldDefinitions;
     }
 
-    public GraphQLObjectType createGraphQLOutputObjectType(DfsContext dfsContext, String mutationName, ResolvableTypeAccessor resolvableTypeAccessor) {
-        GraphQLOutputType clientMutationIdType = getGraphQLSchemaConfig().isAllowEmptyClientMutationId() ?
-                GraphQLString : new GraphQLNonNull(GraphQLString);
+    public List<GraphQLFieldDefinition> findSchemaSubscriptionsFields(DfsContext dfsContext, Class<?> implClass) {
+
+        final List<GraphQLFieldDefinition> graphQLFieldDefinitions = new ArrayList<GraphQLFieldDefinition>();
+
+        ReflectionUtils.getAllMethods(implClass).forEach(method -> {
+            ResolvableTypeAccessor methodReturnTypeResolvableTypeAccessor =
+                    ResolvableTypeAccessor.forMethodReturnType(method, implClass);
+
+            if (methodReturnTypeResolvableTypeAccessor.isGraphQLSubscription()) {
+                String beanName = implClass.getName() + methodReturnTypeResolvableTypeAccessor.getName();
+                Object object = getGraphQLSchemaBeanFactory().getBeanByType(implClass);
+
+                String subscriptionName = StereotypeUtils.getGraphQLSubscriptionName(method, methodReturnTypeResolvableTypeAccessor.getName());
+
+                // --- recursively output object type
+                GraphQLObjectType graphQLOutputObjectType = createGraphQLOutputObjectType(
+                    dfsContext, subscriptionName, methodReturnTypeResolvableTypeAccessor, true);
+
+                // --- recursively input object type
+                GraphQLInputType graphQLInputType =
+                    createGraphQLInputObjectType(dfsContext, subscriptionName, method, implClass, true);
+
+                GraphQLFieldDefinition.Builder fieldBuilder = newFieldDefinition()
+                        .name(subscriptionName)
+                        .description(methodReturnTypeResolvableTypeAccessor.getDescription())
+                        .deprecate(methodReturnTypeResolvableTypeAccessor.getGraphQLDeprecationReason())
+                        .type(graphQLOutputObjectType)
+                        .dataFetcher(new ReflectionGraphQLDataSubscriptor(graphQLSchemaConfig, object, method));
+
+                // input arguments
+                if (graphQLInputType != null) {
+                    fieldBuilder.argument(newArgument()
+                            .name(getGraphQLSchemaConfig().getSubscriptionInputArgumentName())
+                            .type(graphQLInputType)
+                            .build());
+                }
+                GraphQLFieldDefinition subscriptionField = fieldBuilder.build();
+                addToFieldDefinitionResolverMap(dfsContext, subscriptionField, methodReturnTypeResolvableTypeAccessor.getGraphQLComplexitySpelExpression());
+                graphQLFieldDefinitions.add(subscriptionField);
+            }
+        });
+
+        return graphQLFieldDefinitions;
+    }
+
+    public GraphQLObjectType createGraphQLOutputObjectType(
+        DfsContext dfsContext, String mutationName, ResolvableTypeAccessor resolvableTypeAccessor) {
+        return createGraphQLOutputObjectType(dfsContext, mutationName, resolvableTypeAccessor, false);
+    }
+
+    public GraphQLObjectType createGraphQLOutputObjectType(
+        DfsContext dfsContext, String mutationName, ResolvableTypeAccessor resolvableTypeAccessor,
+        boolean isSubscription) {
         GraphQLObjectType.Builder builder = newObject()
-                .name(resolvableTypeAccessor.getName() + getGraphQLSchemaConfig().getOutputObjectNamePrefix())
-                .field(newFieldDefinition()
-                        .name(getGraphQLSchemaConfig().getClientMutationIdName())
-                        .type(clientMutationIdType)
-                        .build());
+            .name(resolvableTypeAccessor.getName() + getGraphQLSchemaConfig().getOutputObjectNamePrefix());
+        if (!isSubscription) {
+            GraphQLOutputType clientMutationIdType = getGraphQLSchemaConfig().isAllowEmptyClientMutationId() ?
+                GraphQLString : new GraphQLNonNull(GraphQLString);
+
+            builder.field(newFieldDefinition()
+                    .name(getGraphQLSchemaConfig().getClientMutationIdName())
+                    .type(clientMutationIdType)
+                    .build());
+        } else {
+            GraphQLOutputType clientSubscriptionIdType = getGraphQLSchemaConfig().isAllowEmptyClientSubscriptionId() ?
+                GraphQLString : new GraphQLNonNull(GraphQLString);
+
+            builder.field(newFieldDefinition()
+                .name(getGraphQLSchemaConfig().getClientSubscriptionIdName())
+                .type(clientSubscriptionIdType)
+                .build());
+        }
 
         Map<String, Class> graphQLOutFields = resolvableTypeAccessor.getGraphQLOutFields();
         for (Map.Entry<String, Class> kvGraphQLOutField : graphQLOutFields.entrySet()) {
@@ -550,6 +630,7 @@ public class GraphQLSchemaDfsTraversal {
         return builder.build();
     }
 
+    // TODO subs
     public void addToMutationReturnTypeResolverMap(DfsContext dfsContext, String mutationName, Class<?> implClass, GraphQLOutputType graphQLOutputType) {
 
         Map<Class<?>, GraphQLOutputType> mutationMap = mutationReturnTypeResolverMap.get(mutationName);
@@ -560,7 +641,13 @@ public class GraphQLSchemaDfsTraversal {
         mutationReturnTypeResolverMap.put(mutationName, mutationMap);
     }
 
-    public GraphQLInputType createGraphQLInputObjectType(DfsContext dfsContext, String mutationName, Method method, Class<?> implClass) {
+    public GraphQLInputType createGraphQLInputObjectType(
+        DfsContext dfsContext, String mutationName, Method method, Class<?> implClass) {
+        return createGraphQLInputObjectType(dfsContext, mutationName, method, implClass, false);
+    }
+
+    public GraphQLInputType createGraphQLInputObjectType(
+        DfsContext dfsContext, String mutationName, Method method, Class<?> implClass, boolean isSubscription) {
 
         final List<GraphQLInputObjectField> graphQLInputObjectFields = new ArrayList<>();
         final GraphQLMethodParameters graphQLMethodParameters = new GraphQLMethodParameters(method, implClass);
@@ -583,7 +670,8 @@ public class GraphQLSchemaDfsTraversal {
                                 .build();
                         graphQLInputObjectFields.add(graphQLInputObjectField);
 
-                        addToMutationInputTypeResolverMap(dfsContext, mutationName, mpi.getParameterType(), graphQLInputObjectField);
+                        // TODO: GraphQLOuts, subs
+//                        addToMutationInputTypeResolverMap(dfsContext, mutationName, mpi.getParameterType(), graphQLInputObjectField);
                     }
                 } else {
                     // --- context object to bind (GraphQLContext, HttpRequest, SecurityContext etc)
@@ -591,23 +679,41 @@ public class GraphQLSchemaDfsTraversal {
             });
         }
 
-        GraphQLInputType clientMutationIdType = getGraphQLSchemaConfig().isAllowEmptyClientMutationId() ?
+        GraphQLInputObjectType inputObjectType;
+        if (!isSubscription) {
+            GraphQLInputType clientMutationIdType = getGraphQLSchemaConfig().isAllowEmptyClientMutationId() ?
                 GraphQLString : new GraphQLNonNull(GraphQLString);
 
-        String inputObjectName = StereotypeUtils.getGraphQLMutationName(method, method.getName());
+            String inputObjectName = StereotypeUtils.getGraphQLMutationName(method, method.getName());
 
-        GraphQLInputObjectType inputObjectType = newInputObject()
+            inputObjectType = newInputObject()
                 .name(inputObjectName + getGraphQLSchemaConfig().getInputObjectNamePrefix())
                 .field(newInputObjectField()
-                        .name(getGraphQLSchemaConfig().getClientMutationIdName())
-                        .type(clientMutationIdType)
-                        .build())
+                    .name(getGraphQLSchemaConfig().getClientMutationIdName())
+                    .type(clientMutationIdType)
+                    .build())
                 .fields(graphQLInputObjectFields)
                 .build();
+        } else {
+            GraphQLInputType clientSubscriptionIdType = getGraphQLSchemaConfig().isAllowEmptyClientSubscriptionId() ?
+                GraphQLString : new GraphQLNonNull(GraphQLString);
+
+            String inputObjectName = StereotypeUtils.getGraphQLSubscriptionName(method, method.getName());
+
+            inputObjectType = newInputObject()
+                .name(inputObjectName + getGraphQLSchemaConfig().getInputObjectNamePrefix())
+                .field(newInputObjectField()
+                    .name(getGraphQLSchemaConfig().getClientSubscriptionIdName())
+                    .type(clientSubscriptionIdType)
+                    .build())
+                .fields(graphQLInputObjectFields)
+                .build();
+        }
 
         return new GraphQLNonNull(inputObjectType);
     }
 
+    // TODO subs
     public void addToMutationInputTypeResolverMap(DfsContext dfsContext, String mutationName, Class<?> implClass, GraphQLInputObjectField graphQLInputObjectField) {
         Map<Class<?>, GraphQLInputObjectField> mutationMap = mutationInputTypeResolverMap.get(mutationName);
         if (mutationMap == null) {
@@ -629,10 +735,12 @@ public class GraphQLSchemaDfsTraversal {
         return graphQLSchemaConfig;
     }
 
+    // TODO subs
     public Map<String, Map<Class<?>, GraphQLOutputType>> getMutationReturnTypeResolverMap() {
         return mutationReturnTypeResolverMap;
     }
 
+    // TODO subs
     public Map<String, Map<Class<?>, GraphQLInputObjectField>> getMutationInputTypeResolverMap() {
         return mutationInputTypeResolverMap;
     }

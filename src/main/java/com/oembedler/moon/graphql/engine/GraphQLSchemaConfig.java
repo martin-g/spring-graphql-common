@@ -29,12 +29,17 @@ public class GraphQLSchemaConfig {
     // ---
 
     private String clientMutationIdName = "clientMutationId";
+    private String clientSubscriptionIdName = "clientSubscriptionId";
     private boolean injectClientMutationId = true;
     private boolean allowEmptyClientMutationId = false;
+    private boolean injectClientSubscriptionId = true;
+    private boolean allowEmptyClientSubscriptionId = false;
     private String mutationInputArgumentName = "input";
     private String outputObjectNamePrefix = "Payload";
     private String inputObjectNamePrefix = "Input";
     private String schemaMutationObjectName = "Mutation";
+    private String subscriptionInputArgumentName = "input";
+    private String schemaSubscriptionObjectName = "Subscription";
     private boolean dateAsTimestamp = true;
     private String dateFormat = "yyyy-MM-dd'T'HH:mm'Z'";
 
@@ -47,6 +52,16 @@ public class GraphQLSchemaConfig {
     public GraphQLSchemaConfig setClientMutationIdName(String clientMutationIdName) {
         Assert.hasText(clientMutationIdName, "Client mutation identity value can not be null!");
         this.clientMutationIdName = clientMutationIdName;
+        return this;
+    }
+
+    public String getClientSubscriptionIdName() {
+        return clientSubscriptionIdName;
+    }
+
+    public GraphQLSchemaConfig setClientSubscriptionIdName(String clientSubscriptionIdName) {
+        Assert.hasText(clientSubscriptionIdName, "Client subscription identity value can not be null!");
+        this.clientSubscriptionIdName = clientSubscriptionIdName;
         return this;
     }
 
@@ -68,6 +83,22 @@ public class GraphQLSchemaConfig {
         return this;
     }
 
+    public boolean isInjectClientSubscriptionId() {
+        return injectClientSubscriptionId;
+    }
+
+    public void setInjectClientSubscriptionId(boolean injectClientSubscriptionId) {
+        this.injectClientSubscriptionId = injectClientSubscriptionId;
+    }
+
+    public boolean isAllowEmptyClientSubscriptionId() {
+        return allowEmptyClientSubscriptionId;
+    }
+
+    public void setAllowEmptyClientSubscriptionId(boolean allowEmptyClientSubscriptionId) {
+        this.allowEmptyClientSubscriptionId = allowEmptyClientSubscriptionId;
+    }
+
     public String getMutationInputArgumentName() {
         return mutationInputArgumentName;
     }
@@ -75,6 +106,16 @@ public class GraphQLSchemaConfig {
     public GraphQLSchemaConfig setMutationInputArgumentName(String mutationInputArgumentName) {
         Assert.notNull(mutationInputArgumentName, "Mutation input argument value can not be null!");
         this.mutationInputArgumentName = mutationInputArgumentName;
+        return this;
+    }
+
+    public String getSubscriptionInputArgumentName() {
+        return subscriptionInputArgumentName;
+    }
+
+    public GraphQLSchemaConfig setSubscriptionInputArgumentName(String subscriptionInputArgumentName) {
+        Assert.notNull(subscriptionInputArgumentName, "Subscription input argument value can not be null!");
+        this.subscriptionInputArgumentName = subscriptionInputArgumentName;
         return this;
     }
 
@@ -105,6 +146,16 @@ public class GraphQLSchemaConfig {
     public GraphQLSchemaConfig setSchemaMutationObjectName(String schemaMutationObjectName) {
         Assert.notNull(schemaMutationObjectName, "Schema mutation object value can not be null!");
         this.schemaMutationObjectName = schemaMutationObjectName;
+        return this;
+    }
+
+    public String getSchemaSubscriptionObjectName() {
+        return schemaSubscriptionObjectName;
+    }
+
+    public GraphQLSchemaConfig setSchemaSubscriptionObjectName(String schemaSubscriptionObjectName) {
+        Assert.notNull(schemaSubscriptionObjectName, "Schema subscription object value can not be null!");
+        this.schemaSubscriptionObjectName = schemaSubscriptionObjectName;
         return this;
     }
 

@@ -56,6 +56,10 @@ public class StereotypeUtils {
         return getAnnotationValue(accessibleObject, GraphQLMutation.class, defaultValue);
     }
 
+    public static String getGraphQLSubscriptionName(AnnotatedElement accessibleObject, String defaultValue) {
+        return getAnnotationValue(accessibleObject, GraphQLSubscription.class, defaultValue);
+    }
+
     private static <T extends Annotation> String getAnnotationValue(AnnotatedElement accessibleObject, Class<T> annotationClass, String defaultValue) {
         Assert.noNullElements(new Object[]{accessibleObject, annotationClass, defaultValue}, "input parameters must not be null");
 

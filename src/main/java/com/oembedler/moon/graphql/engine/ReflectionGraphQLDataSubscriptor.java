@@ -27,13 +27,15 @@ import org.slf4j.LoggerFactory;
 import org.springframework.core.NestedRuntimeException;
 
 import java.lang.reflect.Method;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * @author <a href="mailto:java.lang.RuntimeException@gmail.com">oEmbedler Inc.</a>
  */
-public class ReflectionGraphQLDataFetcher implements DataFetcher {
+public class ReflectionGraphQLDataSubscriptor implements DataFetcher {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(ReflectionGraphQLDataFetcher.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(ReflectionGraphQLDataSubscriptor.class);
 
     private final Object targetObject;
     private final Method targetMethod;
@@ -43,15 +45,15 @@ public class ReflectionGraphQLDataFetcher implements DataFetcher {
 
     // ---
 
-    public static final class DataFetcherRuntimeException extends NestedRuntimeException {
-        public DataFetcherRuntimeException(String msg, Throwable cause) {
+    public static final class DataSubscriptorRuntimeException extends NestedRuntimeException {
+        public DataSubscriptorRuntimeException(String msg, Throwable cause) {
             super(msg, cause);
         }
     }
 
     // ---
 
-    public ReflectionGraphQLDataFetcher(GraphQLSchemaConfig graphQLSchemaConfig, Object targetObject, Method targetMethod) {
+    public ReflectionGraphQLDataSubscriptor(GraphQLSchemaConfig graphQLSchemaConfig, Object targetObject, Method targetMethod) {
         this.targetObject = targetObject;
         this.targetMethod = targetMethod;
         this.graphQLSchemaConfig = graphQLSchemaConfig;
@@ -67,10 +69,7 @@ public class ReflectionGraphQLDataFetcher implements DataFetcher {
             beforeInvocation(environment);
 
             Object[] bindByClassValues = collectBindByClassValues(environment);
-            Object[] inputArguments = getMethodParametersBinder().bindParameters(environment.getArguments(), bindByClassValues);
-            if (isAllNulls(inputArguments) && canApplySourceObject(environment)) {
-                inputArguments = new Object[]{environment.getSource()};
-            }
+            Object[] inputArguments = getMethodParametersBinder().bindParameters(unwrapInputArguments(environment), bindByClassValues);
             targetMethodResult = getTargetMethod().invoke(getTargetObject(), inputArguments);
 
             targetMethodResult = afterInvocation(environment, targetMethodResult);
@@ -79,10 +78,29 @@ public class ReflectionGraphQLDataFetcher implements DataFetcher {
             String msg = "Exception while calling data fetcher [" + getTargetMethod().getName() + "]";
             if (LOGGER.isErrorEnabled())
                 LOGGER.error(msg, e);
-            throw new DataFetcherRuntimeException(msg, e);
+            throw new DataSubscriptorRuntimeException(msg, e);
         }
 
         return targetMethodResult;
+    }
+
+    protected void beforeInvocation(DataFetchingEnvironment environment) {
+    }
+
+    protected Object afterInvocation(DataFetchingEnvironment environment, Object targetMethodResult) {
+
+        Map<String, Object> inputMap = unwrapInputArguments(environment);
+
+        Map<String, Object> outputMap = new HashMap<>();
+        // TODO GraphQLOuts 6
+        if (targetMethodResult instanceof Map) {
+            outputMap.putAll((Map) targetMethodResult);
+        } else {
+            outputMap.put(getGraphQLMethodParameters().getReturnTypeName(), targetMethodResult);
+        }
+        injectClientSubscriptionIdIfRequired(inputMap, outputMap);
+
+        return outputMap;
     }
 
     public Object[] collectBindByClassValues(DataFetchingEnvironment environment) {
@@ -90,27 +108,20 @@ public class ReflectionGraphQLDataFetcher implements DataFetcher {
         return bindByClassValues;
     }
 
-    public static boolean isAllNulls(Object[] array) {
-        if (array != null) {
-            for (Object obj : array) {
-                if (obj != null)
-                    return false;
-            }
+    protected Map<String, Object> unwrapInputArguments(DataFetchingEnvironment environment) {
+        Map<String, Object> inputObject = null;
+        String inArgName = getGraphQLSchemaConfig().getSubscriptionInputArgumentName();
+        if (environment.getArguments() != null && (environment.getArguments() instanceof Map)) {
+            inputObject = (Map<String, Object>) environment.getArguments().get(inArgName);
         }
-        return true;
+        return inputObject;
     }
 
-    protected boolean canApplySourceObject(DataFetchingEnvironment environment) {
-        return environment.getSource() != null && getGraphQLMethodParameters().getNumberOfParameters() > 0?
-                getGraphQLMethodParameters().isCompatibleWith(0, environment.getSource().getClass()) :
-                false;
-    }
-
-    protected void beforeInvocation(DataFetchingEnvironment environment) {
-    }
-
-    protected Object afterInvocation(DataFetchingEnvironment environment, Object targetMethodResult) {
-        return targetMethodResult;
+    private void injectClientSubscriptionIdIfRequired(Map<String, Object> inputMap, Map<String, Object> outputMap) {
+        if (getGraphQLSchemaConfig().isInjectClientSubscriptionId()) {
+            String clientSubscriptionId = (String) inputMap.get(getGraphQLSchemaConfig().getClientSubscriptionIdName());
+            outputMap.put(getGraphQLSchemaConfig().getClientSubscriptionIdName(), clientSubscriptionId);
+        }
     }
 
     public GraphQLMethodParameters getGraphQLMethodParameters() {
@@ -127,5 +138,9 @@ public class ReflectionGraphQLDataFetcher implements DataFetcher {
 
     public Object getTargetObject() {
         return targetObject;
+    }
+
+    public GraphQLSchemaConfig getGraphQLSchemaConfig() {
+        return graphQLSchemaConfig;
     }
 }
