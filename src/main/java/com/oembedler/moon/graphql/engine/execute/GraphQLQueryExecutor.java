@@ -141,7 +141,7 @@ public class GraphQLQueryExecutor {
     public <T extends ExecutionResult> T execute() {
 
         assertNotNull(arguments, "Arguments can't be null");
-        LOGGER.info("Executing request. Operation name: {}. Request: {} ", operationName, requestQuery);
+        LOGGER.debug("Executing request. Operation name: {}. Request: {} ", operationName, requestQuery);
 
         Parser parser = new Parser();
         Document document;
