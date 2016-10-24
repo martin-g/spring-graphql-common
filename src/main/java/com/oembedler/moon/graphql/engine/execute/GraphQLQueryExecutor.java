@@ -19,6 +19,7 @@
 
 package com.oembedler.moon.graphql.engine.execute;
 
+import com.oembedler.moon.graphql.boot.GraphQLProperties;
 import com.oembedler.moon.graphql.engine.GraphQLSchemaHolder;
 import graphql.ExecutionResult;
 import graphql.InvalidSyntaxError;
@@ -32,6 +33,7 @@ import org.antlr.v4.runtime.RecognitionException;
 import org.antlr.v4.runtime.misc.ParseCancellationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.util.Assert;
 import rx.Observable;
 
@@ -60,24 +62,35 @@ public class GraphQLQueryExecutor {
     private ExecutorService executorService;
     private int maxQueryComplexity = -1;
     private int maxQueryDepth = -1;
+    private GraphQLProperties graphQLProperties;
 
 
-    private GraphQLQueryExecutor(final GraphQLSchemaHolder graphQLSchemaHolder) {
-        this(graphQLSchemaHolder, null);
+    private GraphQLQueryExecutor(
+        final GraphQLSchemaHolder graphQLSchemaHolder, final GraphQLProperties graphQLProperties) {
+        this(graphQLSchemaHolder, graphQLProperties, null);
     }
 
-    private GraphQLQueryExecutor(final GraphQLSchemaHolder graphQLSchemaHolder, final ExecutionStrategy executionStrategy) {
+    private GraphQLQueryExecutor(
+        final GraphQLSchemaHolder graphQLSchemaHolder, final GraphQLProperties graphQLProperties,
+        final ExecutionStrategy executionStrategy) {
+
         Assert.notNull(graphQLSchemaHolder, "GraphQL Schema holder can not be null");
         this.graphQLSchemaHolder = graphQLSchemaHolder;
         this.executionStrategy = executionStrategy;
+        this.graphQLProperties = graphQLProperties;
     }
 
-    public static GraphQLQueryExecutor create(final GraphQLSchemaHolder graphQLSchemaHolder) {
-        return new GraphQLQueryExecutor(graphQLSchemaHolder);
+    public static GraphQLQueryExecutor create(
+        final GraphQLSchemaHolder graphQLSchemaHolder, final GraphQLProperties graphQLProperties) {
+
+        return new GraphQLQueryExecutor(graphQLSchemaHolder, graphQLProperties);
     }
 
-    public static GraphQLQueryExecutor create(final GraphQLSchemaHolder graphQLSchemaHolder, final ExecutionStrategy executionStrategy) {
-        return new GraphQLQueryExecutor(graphQLSchemaHolder, executionStrategy);
+    public static GraphQLQueryExecutor create(
+        final GraphQLSchemaHolder graphQLSchemaHolder, final GraphQLProperties graphQLProperties,
+        final ExecutionStrategy executionStrategy) {
+
+        return new GraphQLQueryExecutor(graphQLSchemaHolder, graphQLProperties, executionStrategy);
     }
 
     public GraphQLQueryExecutor query(final String requestQuery) {
@@ -141,10 +154,12 @@ public class GraphQLQueryExecutor {
             return (T) new GraphQLRxExecutionResult(Observable.just(null), Observable.just(Arrays.asList(invalidSyntaxError)));
         }
 
-        Validator validator = new Validator();
-        List<ValidationError> validationErrors = validator.validateDocument(graphQLSchemaHolder.getGraphQLSchema(), document);
-        if (validationErrors.size() > 0) {
-            return (T) new GraphQLRxExecutionResult(Observable.just(null), Observable.just(validationErrors));
+        if (graphQLProperties.getServer().isValidateRequests()) {
+            Validator validator = new Validator();
+            List<ValidationError> validationErrors = validator.validateDocument(graphQLSchemaHolder.getGraphQLSchema(), document);
+            if (validationErrors.size() > 0) {
+                return (T) new GraphQLRxExecutionResult(Observable.just(null), Observable.just(validationErrors));
+            }
         }
 
         if (executionStrategy == null) {
