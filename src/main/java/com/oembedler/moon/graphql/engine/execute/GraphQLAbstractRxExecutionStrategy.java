@@ -34,6 +34,7 @@ import org.springframework.expression.spel.support.StandardEvaluationContext;
 import rx.Observable;
 import rx.observables.MathObservable;
 
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -148,11 +149,13 @@ abstract class GraphQLAbstractRxExecutionStrategy extends ExecutionStrategy {
     }
 
     @Override
-    protected ExecutionResult completeValueForList(ExecutionContext executionContext, GraphQLList fieldType, List<Field> fields, List<Object> result) {
+    protected ExecutionResult completeValueForList(ExecutionContext executionContext, GraphQLList fieldType, List<Field> fields, Iterable<Object> result) {
+        List<Object> resultAsList = new ArrayList<>();
+        result.forEach(resultAsList::add);
         Observable<List<ListTuple>> cachedObservable =
                 Observable.from(
-                        IntStream.range(0, result.size())
-                                .mapToObj(idx -> new ListTuple(idx, result.get(idx), null))
+                        IntStream.range(0, resultAsList.size())
+                                .mapToObj(idx -> new ListTuple(idx, resultAsList.get(idx), null))
                                 .toArray(ListTuple[]::new)
                 )
                         .flatMap(tuple -> {
