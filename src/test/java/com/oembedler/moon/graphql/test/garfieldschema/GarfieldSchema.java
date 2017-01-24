@@ -64,7 +64,7 @@ public class GarfieldSchema {
             return barks;
         }
 
-        @GraphQLField("name")
+        @Override
         public String getName() {
             return name;
         }
@@ -89,7 +89,7 @@ public class GarfieldSchema {
             return meows;
         }
 
-        @GraphQLField("name")
+        @Override
         public String getName() {
             return name;
         }
@@ -114,7 +114,7 @@ public class GarfieldSchema {
         }
 
         public Person(String name) {
-            this(name, Collections.<Cat>emptyList(), Collections.<Dog>emptyList(), Collections.<Named>emptyList());
+            this(name, Collections.emptyList(), Collections.emptyList(), Collections.emptyList());
         }
 
         public Person(String name, List<Cat> cats, List<Dog> dogs, List<Named> friends) {
@@ -132,7 +132,7 @@ public class GarfieldSchema {
             return pets;
         }
 
-        @GraphQLField("name")
+        @Override
         public String getName() {
             return name;
         }

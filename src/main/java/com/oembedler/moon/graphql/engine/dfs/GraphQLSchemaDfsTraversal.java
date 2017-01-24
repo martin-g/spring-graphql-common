@@ -19,18 +19,7 @@
 
 package com.oembedler.moon.graphql.engine.dfs;
 
-import com.google.common.collect.Lists;
-import com.oembedler.moon.graphql.GraphQLConstants;
-import com.oembedler.moon.graphql.GraphQLSchemaBeanFactory;
-import com.oembedler.moon.graphql.engine.*;
-import com.oembedler.moon.graphql.engine.stereotype.GraphQLInterface;
-import com.oembedler.moon.graphql.engine.stereotype.GraphQLSchemaQuery;
-import com.oembedler.moon.graphql.engine.type.GraphQLEnumTypeExt;
-import graphql.Scalars;
-import graphql.schema.*;
 import org.reflections.ReflectionUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.core.NestedRuntimeException;
 import org.springframework.expression.Expression;
 import org.springframework.expression.ExpressionParser;
@@ -42,8 +31,41 @@ import org.springframework.util.StringUtils;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+
+import com.google.common.collect.Lists;
+import com.oembedler.moon.graphql.GraphQLConstants;
+import com.oembedler.moon.graphql.GraphQLSchemaBeanFactory;
+import com.oembedler.moon.graphql.engine.CompleteObjectTreeTypeResolver;
+import com.oembedler.moon.graphql.engine.GraphQLSchemaConfig;
+import com.oembedler.moon.graphql.engine.ReflectionGraphQLDataFetcher;
+import com.oembedler.moon.graphql.engine.ReflectionGraphQLDataMutator;
+import com.oembedler.moon.graphql.engine.StereotypeUtils;
+import com.oembedler.moon.graphql.engine.stereotype.GraphQLInterface;
+import com.oembedler.moon.graphql.engine.stereotype.GraphQLSchemaQuery;
+import com.oembedler.moon.graphql.engine.type.GraphQLEnumTypeExt;
+import graphql.Scalars;
+import graphql.schema.GraphQLArgument;
+import graphql.schema.GraphQLEnumType;
+import graphql.schema.GraphQLFieldDefinition;
+import graphql.schema.GraphQLInputObjectField;
+import graphql.schema.GraphQLInputObjectType;
+import graphql.schema.GraphQLInputType;
+import graphql.schema.GraphQLInterfaceType;
+import graphql.schema.GraphQLList;
+import graphql.schema.GraphQLNonNull;
+import graphql.schema.GraphQLObjectType;
+import graphql.schema.GraphQLOutputType;
+import graphql.schema.GraphQLSchema;
+import graphql.schema.GraphQLType;
+import graphql.schema.GraphQLTypeReference;
+import graphql.schema.GraphQLUnionType;
 
 import static graphql.Scalars.GraphQLString;
 import static graphql.schema.GraphQLArgument.newArgument;
@@ -59,7 +81,6 @@ import static graphql.schema.GraphQLSchema.newSchema;
  */
 public class GraphQLSchemaDfsTraversal {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(GraphQLSchemaDfsTraversal.class);
     private static final ExpressionParser SPEL_EXPRESSION_PARSER = new SpelExpressionParser();
 
     // ---
@@ -160,7 +181,7 @@ public class GraphQLSchemaDfsTraversal {
 
                         graphQLObjectType = GraphQLUnionType.newUnionType()
                                 .name(resolvableTypeAccessor.getName())
-                                .possibleTypes(possibleTypes.toArray(new GraphQLType[possibleTypes.size()]))
+                                .possibleTypes(possibleTypes.toArray(new GraphQLObjectType[possibleTypes.size()]))
                                 .typeResolver(new CompleteObjectTreeTypeResolver(objectTypeResolverMap))
                                 .description(resolvableTypeAccessor.getDescription())
                                 .build();

@@ -19,6 +19,17 @@
 
 package com.oembedler.moon.graphql.engine.execute;
 
+import org.springframework.core.NestedRuntimeException;
+import org.springframework.expression.Expression;
+import org.springframework.expression.spel.support.StandardEvaluationContext;
+
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+
+import com.google.common.collect.Lists;
 import com.oembedler.moon.graphql.GraphQLConstants;
 import com.oembedler.moon.graphql.engine.GraphQLSchemaHolder;
 import com.oembedler.moon.graphql.engine.dfs.GraphQLFieldDefinitionWrapper;
@@ -27,18 +38,14 @@ import graphql.execution.ExecutionContext;
 import graphql.execution.ExecutionStrategy;
 import graphql.language.Field;
 import graphql.language.OperationDefinition;
-import graphql.schema.*;
-import org.springframework.core.NestedRuntimeException;
-import org.springframework.expression.Expression;
-import org.springframework.expression.spel.support.StandardEvaluationContext;
+import graphql.schema.GraphQLEnumType;
+import graphql.schema.GraphQLFieldDefinition;
+import graphql.schema.GraphQLList;
+import graphql.schema.GraphQLObjectType;
+import graphql.schema.GraphQLScalarType;
+import graphql.schema.GraphQLType;
 import rx.Observable;
 import rx.observables.MathObservable;
-
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 /**
  * Idea was borrowed from <a href="https://github.com/nfl/graphql-rxjava"></a>
@@ -147,8 +154,9 @@ abstract class GraphQLAbstractRxExecutionStrategy extends ExecutionStrategy {
     }
 
     @Override
-    protected ExecutionResult completeValueForList(ExecutionContext executionContext, GraphQLList fieldType, List<Field> fields, List<Object> result) {
-        Observable<List<ListTuple>> cachedObservable =
+    protected ExecutionResult completeValueForList(ExecutionContext executionContext, GraphQLList fieldType, List<Field> fields, Iterable<Object> resultIterable) {
+        List<Object> result = Lists.newArrayList(resultIterable);
+        Observable < List <ListTuple>> cachedObservable =
                 Observable.from(
                         IntStream.range(0, result.size())
                                 .mapToObj(idx -> new ListTuple(idx, result.get(idx), null))

@@ -30,6 +30,7 @@ import com.oembedler.moon.graphql.engine.execute.GraphQLQueryExecutor;
 import com.oembedler.moon.graphql.engine.execute.GraphQLRxExecutionResult;
 import com.oembedler.moon.graphql.test.garfieldschema.GarfieldSchema;
 import org.junit.Assert;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.slf4j.Logger;
@@ -111,6 +112,7 @@ public class GenericGarfieldSchemaParserTest {
     }
 
     @Test
+    @Ignore
     public void introspectionQuery_Success() throws IOException {
         GraphQLRxExecutionResult result =
                 GraphQLQueryExecutor

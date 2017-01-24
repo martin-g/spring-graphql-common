@@ -45,8 +45,6 @@ public class ComputationDelaySchema {
         private String id;
 
         @Override
-        @GraphQLNonNull
-        @GraphQLField("id")
         public String getId() throws InterruptedException {
             Thread.sleep(DELAY_MS);
             return null;

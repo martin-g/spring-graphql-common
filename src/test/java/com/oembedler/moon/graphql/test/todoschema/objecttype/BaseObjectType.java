@@ -35,9 +35,6 @@ public class BaseObjectType implements RelayNode {
     @GraphQLField
     private Date updated;
 
-    @GraphQLID("id")
-    @GraphQLNonNull
-    @GraphQLDescription("Global object unique identifier")
     public String getId(RelayNode relayNode) {
         BaseObjectType baseObjectType = (BaseObjectType) relayNode;
         return baseObjectType.id;
